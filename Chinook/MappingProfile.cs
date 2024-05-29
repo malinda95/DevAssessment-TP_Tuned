@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Chinook.ClientModels;
 using Chinook.Models;
+using Playlist = Chinook.Models.Playlist;
 
 namespace Chinook
 {
@@ -10,6 +11,7 @@ namespace Chinook
         {
             CreateMap<Artist, ArtistViewModel>().ReverseMap();
             CreateMap<Album, AlbumViewModel>().ReverseMap();
+            CreateMap<Playlist, PlaylistViewModel>().ReverseMap();
         }
     }
 }
