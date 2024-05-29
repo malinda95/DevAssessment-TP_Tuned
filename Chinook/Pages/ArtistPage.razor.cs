@@ -1,91 +1,169 @@
 using Chinook.ClientModels;
-using Chinook.Models;
+using Chinook.Domain.Contracts;
+using Chinook.Domain.Utils;
 using Chinook.Shared.Components;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
+using static Chinook.Domain.Constants;
 
 namespace Chinook.Pages
 {
     public partial class ArtistPage
     {
         [Parameter] public long ArtistId { get; set; }
-        [CascadingParameter] private Task<AuthenticationState> authenticationState { get; set; }
-        [Inject] IDbContextFactory<ChinookContext> DbFactory { get; set; }
+        [Inject] IArtistService ArtistService { get; set; }
+        [Inject] IPlaylistService PlaylistService { get; set; }
+        [Inject] IAlbumTrackService AlbumTrackService { get; set; }
+        [Inject] ILogger<ArtistPage> Logger { get; set; }
+        [Inject] CustomNotificationService CustomNotificationService { get; set; }
         private Modal PlaylistDialog { get; set; }
+        private long SelectedPlaylistId { get; set; }
 
-        private Artist Artist;
-        private List<PlaylistTrack> Tracks;
-        private DbContext DbContext;
-        private PlaylistTrack SelectedTrack;
-        private string InfoMessage;
-        private string CurrentUserId;
+        private ArtistViewModel artist;
+        private List<PlaylistTrack> tracks;
+        private List<PlaylistViewModel> existingPlaylists;
+        private PlaylistTrack selectedTrack;
+        private string message = "";
+        private bool isError = false;
+        private string newPlaylistName = "";
 
         protected override async Task OnInitializedAsync()
         {
-            await InvokeAsync(StateHasChanged);
-            CurrentUserId = await GetUserId();
-            var DbContext = await DbFactory.CreateDbContextAsync();
-
-            Artist = DbContext.Artists.SingleOrDefault(a => a.ArtistId == ArtistId);
-
-            Tracks = DbContext.Tracks.Where(a => a.Album.ArtistId == ArtistId)
-                .Include(a => a.Album)
-                .Select(t => new PlaylistTrack()
-                {
-                    AlbumTitle = (t.Album == null ? "-" : t.Album.Title),
-                    TrackId = t.TrackId,
-                    TrackName = t.Name,
-                    IsFavorite = t.Playlists.Where(p => p.UserPlaylists.Any(up => up.UserId == CurrentUserId && up.Playlist.Name == "Favorites")).Any()
-                })
-                .ToList();
+            artist = await GetArtistById();
+            tracks = await GetTracksByArtistId();
+            existingPlaylists = await GetUserPlaylists();
         }
 
-        private async Task<string> GetUserId()
+        private async Task<ArtistViewModel> GetArtistById()
         {
-            var user = (await authenticationState).User;
-            var userId = user.FindFirst(u => u.Type.Contains(ClaimTypes.NameIdentifier))?.Value;
-            return userId;
+            try
+            {
+                return await ArtistService.GetArtistByIdAsync(ArtistId);
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while fetching artist.", ex);
+                return null;
+            }
         }
 
-        private void FavoriteTrack(long trackId)
+        private async Task<List<PlaylistTrack>> GetTracksByArtistId()
         {
-            var track = Tracks.FirstOrDefault(t => t.TrackId == trackId);
-
-            // TODO: add track to Favorites playlist
-
-            InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to playlist Favorites.";
+            try
+            {
+                return await AlbumTrackService.GetTracksByArtistIdAsync(ArtistId);
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while fetching tracks.", ex);
+                return new List<PlaylistTrack>();
+            }
         }
 
-        private void UnfavoriteTrack(long trackId)
+        private async Task<List<PlaylistViewModel>> GetUserPlaylists()
         {
-            var track = Tracks.FirstOrDefault(t => t.TrackId == trackId);
+            try
+            {
+                return await PlaylistService.GetUserPlaylistsAsync(false);
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while fetching user playlists.", ex);
+                return new List<PlaylistViewModel>();
+            }
+        }
 
-            // TODO: remove track from Favorites playlist
+        private async Task FavoriteTrack(long trackId)
+        {
+            try
+            {
+                isError = false;
+                message = "";
+                var track = tracks.FirstOrDefault(t => t.TrackId == trackId);
+                await PlaylistService.AddFavoriteTrackByIdAsync(trackId);
+                track.IsFavorite = true;
+                await CustomNotificationService.NotifyEventAsync(CustomEvents.NewPlaylistAdded);
 
-            InfoMessage = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from playlist Favorites.";
+                message = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} added to {DefaultPlaylistNames.Favorites}.";
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while marking the track as favorite.", ex);
+            }
+        }
+
+        private async Task UnfavoriteTrack(long trackId)
+        {
+            try
+            {
+                isError = false;
+                message = "";
+                var track = tracks.FirstOrDefault(t => t.TrackId == trackId);
+                await PlaylistService.RemoveFavoriteTrackByIdAsync(trackId);
+                track.IsFavorite = false;
+
+                message = $"Track {track.ArtistName} - {track.AlbumTitle} - {track.TrackName} removed from {DefaultPlaylistNames.Favorites}.";
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while unmarking the track as favorite.", ex);
+            }
         }
 
         private void OpenPlaylistDialog(long trackId)
         {
-            CloseInfoMessage();
-            SelectedTrack = Tracks.FirstOrDefault(t => t.TrackId == trackId);
-            PlaylistDialog.Open();
+            try
+            {
+                SelectedPlaylistId = 0;
+                isError = false;
+                message = "";
+                selectedTrack = tracks.FirstOrDefault(t => t.TrackId == trackId);
+                newPlaylistName = "";
+                PlaylistDialog.Open();
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while opening the playlist dialog.", ex);
+            }
         }
 
-        private void AddTrackToPlaylist()
+        private async Task AddTrackToPlaylist()
         {
-            // TODO
-
-            CloseInfoMessage();
-            InfoMessage = $"Track {Artist.Name} - {SelectedTrack.AlbumTitle} - {SelectedTrack.TrackName} added to playlist {{playlist name}}.";
-            PlaylistDialog.Close();
+            try
+            {
+                if (!string.IsNullOrEmpty(newPlaylistName))
+                {
+                    var result = await PlaylistService.AddTrackToNewPlaylistAsync(newPlaylistName, selectedTrack.TrackId);
+                    if (result.IsSuccess)
+                    {
+                        message = $"Track {artist.Name} - {selectedTrack.AlbumTitle} - {selectedTrack.TrackName} added to playlist {newPlaylistName}.";
+                        existingPlaylists = await PlaylistService.GetUserPlaylistsAsync(false);
+                        await CustomNotificationService.NotifyEventAsync(CustomEvents.NewPlaylistAdded);
+                    }
+                    else
+                    {
+                        isError = true;
+                        message = result.Message;
+                    }
+                }
+                else if (SelectedPlaylistId > 0)
+                {
+                    await PlaylistService.AddTrackToExistingPlaylistAsync(SelectedPlaylistId, selectedTrack.TrackId);
+                    var selectedExistingPlaylistName = existingPlaylists.Single(pl => pl.PlaylistId == SelectedPlaylistId).Name;
+                    message = $"Track {artist.Name} - {selectedTrack.AlbumTitle} - {selectedTrack.TrackName} added to playlist {selectedExistingPlaylistName}.";
+                }
+                PlaylistDialog.Close();
+            }
+            catch (Exception ex)
+            {
+                HandleError("An error occurred while adding the track to the playlist.", ex);
+            }
         }
-
-        private void CloseInfoMessage()
+        
+        private void HandleError(string errorMessage, Exception ex)
         {
-            InfoMessage = "";
+            isError = true;
+            message = errorMessage;
+            Logger.LogError(ex, errorMessage);
         }
     }
 }

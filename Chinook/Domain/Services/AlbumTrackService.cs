@@ -1,6 +1,7 @@
 ﻿using Chinook.ClientModels;
 using Chinook.Domain.Contracts;
 using Microsoft.EntityFrameworkCore;
+using static Chinook.Domain.Constants;
 
 namespace Chinook.Domain.Services
 {
@@ -29,7 +30,7 @@ namespace Chinook.Domain.Services
                         AlbumTitle = (t.Album == null ? "-" : t.Album.Title),
                         TrackId = t.TrackId,
                         TrackName = t.Name,
-                        IsFavorite = t.Playlists.Where(p => p.UserPlaylists.Any(up => up.UserId == currentUserId && up.Playlist.Name == "Favorites")).Any()
+                        IsFavorite = t.Playlists.Where(p => p.UserPlaylists.Any(up => up.UserId == currentUserId && up.Playlist.Name == DefaultPlaylistNames.Favorites)).Any()
                     })
                     .ToList();
 
