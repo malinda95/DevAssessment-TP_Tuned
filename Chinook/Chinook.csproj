@@ -7,6 +7,23 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Include="Pages\ArtistPage.razor" />
+    <None Include="Pages\Error.cshtml" />
+    <None Include="Pages\Home.razor" />
+    <None Include="Pages\PlaylistPage.razor" />
+    <None Include="Pages\_Host.cshtml" />
+    <None Include="Pages\_Layout.cshtml" />
+    <None Include="Pages\_ViewImports.cshtml" />
+    <None Include="Shared\Components\Loading.razor" />
+    <None Include="Shared\Components\Modal.razor" />
+    <None Include="Shared\LoginDisplay.razor" />
+    <None Include="Shared\MainLayout.razor" />
+    <None Include="Shared\NavMenu.razor" />
+    <None Include="Shared\RedirectToLogin.razor" />
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="AutoMapper" Version="13.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" Version="8.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.UI" Version="8.0.3" />

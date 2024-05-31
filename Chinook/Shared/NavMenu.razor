@@ -1,4 +1,10 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Chinook.ClientModels
+@using Chinook.Domain
+@using Chinook.Domain.Contracts
+@using Chinook.Domain.Utils
+@using static Chinook.Domain.Constants
+@implements IDisposable
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">Chinook</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -15,23 +21,15 @@
             </NavLink>
         </div>
         <div class="nav-item px-3">
-@* 
-            <NavLink class="nav-link" href="playlist/playlistnumber">
-                <i class="bi bi-music-note-list me-3" style="font-size: 1.25em"></i>My favorite tracks
-            </NavLink>
-*@
-</div>
+            @foreach (var playlist in Playlists)
+            {
+                <NavLink class="nav-link" href="@("playlist/" + playlist.PlaylistId)" Match="NavLinkMatch.All">
+                    <i class="bi bi-music-note-list me-3" style="font-size: 1.25em"></i>@playlist.Name
+                </NavLink>
+            }
+
+        </div>
 
     </nav>
 </div>
 
-@code {
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-    }
-}
